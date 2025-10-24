@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { BookOpen, MessageSquare, FileText, GraduationCap } from 'lucide-react';
@@ -105,12 +105,9 @@ export function CoursesPage({ onOpenQuestionnaire, onOpenChat }: CoursesPageProp
                   className="cursor-pointer hover:shadow-lg hover:border-blue-500 transition-all"
                   onClick={() => setSelectedYear(year)}
                 >
-                  <CardHeader className="text-center">
-                    <GraduationCap className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-                    <CardTitle>Year {year}</CardTitle>
-                    <CardDescription>
-                      {year === 1 ? 'Foundation' : year === 5 ? 'Final Year' : 'Intermediate'}
-                    </CardDescription>
+                  <CardHeader className="text-center py-8">
+                    <GraduationCap className="w-16 h-16 mx-auto text-blue-600 mb-6" />
+                    <CardTitle className="text-2xl">Year {year}</CardTitle>
                   </CardHeader>
                 </Card>
               ))}
@@ -135,12 +132,9 @@ export function CoursesPage({ onOpenQuestionnaire, onOpenChat }: CoursesPageProp
                   className="cursor-pointer hover:shadow-lg hover:border-blue-500 transition-all"
                   onClick={() => setSelectedDepartment(dept)}
                 >
-                  <CardHeader>
-                    <BookOpen className="w-12 h-12 text-blue-600 mb-4" />
-                    <CardTitle>{dept}</CardTitle>
-                    <CardDescription>
-                      View subjects and start learning
-                    </CardDescription>
+                  <CardHeader className="text-center py-8">
+                    <BookOpen className="w-12 h-12 mx-auto text-blue-600 mb-6" />
+                    <CardTitle className="text-xl">{dept}</CardTitle>
                   </CardHeader>
                 </Card>
               ))}
@@ -168,7 +162,6 @@ export function CoursesPage({ onOpenQuestionnaire, onOpenChat }: CoursesPageProp
                           <BookOpen className="w-5 h-5 text-blue-600" />
                           {subject.name}
                         </CardTitle>
-                        <CardDescription>{subject.chapters} chapters</CardDescription>
                       </div>
                       <Badge variant={subject.progress > 70 ? 'default' : 'secondary'}>
                         {subject.progress}%

@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { type AuthUser } from '../lib/auth';
+import { toast } from 'sonner';
 
 interface LoginRegisterProps {
-  onLogin: (userData: any) => void;
+  onLogin: (userData: AuthUser) => void;
 }
 
 export function LoginRegister({ onLogin }: LoginRegisterProps) {
@@ -21,26 +23,97 @@ export function LoginRegister({ onLogin }: LoginRegisterProps) {
   const [year, setYear] = useState('');
   const [department, setDepartment] = useState('');
   const [indexNumber, setIndexNumber] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin({
-      email: loginEmail,
-      name: 'Student',
-      year: '1',
-      department: 'IT',
-    });
+    setIsLoading(true);
+
+    try {
+      if (!loginEmail || !loginPassword) {
+        toast.error('Please fill in all fields');
+        return;
+      }
+
+      // Simple database login for graduation project
+      const { supabase } = await import('../lib/supabase');
+      
+      const { data: userData, error } = await (supabase as any)
+        .from('users')
+        .select('*')
+        .eq('email', loginEmail)
+        .eq('password', loginPassword)
+        .single();
+
+      if (error || !userData) {
+        toast.error('Invalid email or password');
+        return;
+      }
+
+      toast.success('Login successful!');
+      onLogin(userData);
+
+    } catch (error) {
+      toast.error('Login failed. Please check your credentials.');
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin({
-      email: registerEmail,
-      name: `${firstName} ${lastName}`,
-      year,
-      department,
-      indexNumber,
-    });
+    setIsLoading(true);
+
+    try {
+      if (!registerEmail || !registerPassword || !firstName || !lastName) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Simple database registration for graduation project
+      const { supabase } = await import('../lib/supabase');
+
+      // Check if email already exists
+      const { data: existingUser } = await (supabase as any)
+        .from('users')
+        .select('user_id')
+        .eq('email', registerEmail)
+        .single();
+
+      if (existingUser) {
+        toast.error('Email already exists');
+        return;
+      }
+
+      // Insert new user
+      const { data: newUser, error } = await (supabase as any)
+        .from('users')
+        .insert({
+          name: `${firstName} ${lastName}`,
+          email: registerEmail,
+          password: registerPassword, // Note: In production, hash this!
+          role: 'student',
+          year: parseInt(year) || 1,
+          department: department || 'IT'
+        })
+        .select()
+        .single();
+
+      if (error || !newUser) {
+        toast.error('Registration failed');
+        return;
+      }
+
+      toast.success('Registration successful!');
+      onLogin(newUser);
+
+    } catch (error) {
+      toast.error('Registration failed. Please try again.');
+      console.error('Registration error:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -99,8 +172,8 @@ export function LoginRegister({ onLogin }: LoginRegisterProps) {
                         required
                       />
                     </div>
-                    <Button type="submit" className="w-full">
-                      Login
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? 'Logging in...' : 'Login'}
                     </Button>
                     <Button type="button" variant="ghost" className="w-full">
                       Forgot Password?
@@ -203,8 +276,8 @@ export function LoginRegister({ onLogin }: LoginRegisterProps) {
                         required
                       />
                     </div>
-                    <Button type="submit" className="w-full">
-                      Register
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? 'Creating Account...' : 'Register'}
                     </Button>
                   </form>
                 </CardContent>

@@ -1,6 +1,5 @@
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { GraduationCap, Home, BookOpen, User, LogOut, BarChart3, Info } from 'lucide-react';
 
 interface NavbarProps {
@@ -11,7 +10,9 @@ interface NavbarProps {
 }
 
 export function Navbar({ currentPage, onNavigate, onLogout, userData }: NavbarProps) {
-  const initials = userData.name
+  console.log('Navbar userData:', userData); // Debug log
+  
+  const initials = userData?.name
     ?.split(' ')
     .map((n: string) => n[0])
     .join('')
@@ -58,41 +59,78 @@ export function Navbar({ currentPage, onNavigate, onLogout, userData }: NavbarPr
             />
           </div>
 
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar>
-                  <AvatarImage src="" alt={userData.name} />
-                  <AvatarFallback className="bg-blue-600 text-white">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuLabel>
+          {/* User Menu - Simple Custom Dropdown */}
+          <div className="relative">
+            <Button 
+              variant="ghost" 
+              className="relative h-10 w-10 rounded-full"
+              onClick={() => {
+                console.log('Avatar clicked!');
+                const dropdown = document.getElementById('user-dropdown');
+                if (dropdown) {
+                  dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                }
+              }}
+            >
+              <Avatar>
+                <AvatarImage src="" alt={userData?.name} />
+                <AvatarFallback className="bg-blue-600 text-white">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+            
+            {/* Custom Dropdown */}
+            <div 
+              id="user-dropdown"
+              className="absolute right-0 top-12 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-50"
+              style={{ display: 'none' }}
+            >
+              <div className="p-3 border-b border-gray-200">
                 <div className="flex flex-col">
-                  <span>{userData.name}</span>
-                  <span className="text-xs text-muted-foreground">{userData.email}</span>
+                  <span className="font-medium text-gray-900">{userData?.name}</span>
+                  <span className="text-xs text-gray-500">{userData?.email}</span>
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onNavigate('profile')}>
-                <User className="w-4 h-4 mr-2" />
-                Profile Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onNavigate('dashboard')}>
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Dashboard
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onLogout} className="text-destructive">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </div>
+              
+              <div className="py-1">
+                <button 
+                  onClick={() => {
+                    onNavigate('profile');
+                    document.getElementById('user-dropdown')!.style.display = 'none';
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Profile Settings
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    onNavigate('dashboard');
+                    document.getElementById('user-dropdown')!.style.display = 'none';
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Dashboard
+                </button>
+                
+                <hr className="border-gray-200 my-1" />
+                
+                <button 
+                  onClick={() => {
+                    onLogout();
+                    document.getElementById('user-dropdown')!.style.display = 'none';
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </nav>

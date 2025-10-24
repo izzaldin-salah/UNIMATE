@@ -74,7 +74,7 @@ export default function App() {
         />
       )}
       {currentPage === 'profile' && (
-        <ProfilePage userData={userData} onUpdateUser={handleUpdateUser} />
+        <ProfilePage userData={userData} onUserDataUpdate={handleUpdateUser} />
       )}
       {currentPage === 'dashboard' && <DashboardPage />}
 

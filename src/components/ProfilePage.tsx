@@ -7,42 +7,91 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { User, Mail, Lock, GraduationCap, Building } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
 
 interface ProfilePageProps {
   userData: any;
-  onUpdateUser: (data: any) => void;
+  onUserDataUpdate: (data: any) => void;
 }
 
-export function ProfilePage({ userData, onUpdateUser }: ProfilePageProps) {
-  const [firstName, setFirstName] = useState(userData.name?.split(' ')[0] || '');
-  const [lastName, setLastName] = useState(userData.name?.split(' ')[1] || '');
-  const [email, setEmail] = useState(userData.email || '');
-  const [year, setYear] = useState(userData.year || '1');
-  const [department, setDepartment] = useState(userData.department || 'IT');
+export function ProfilePage({ userData, onUserDataUpdate }: ProfilePageProps) {
+  const [firstName, setFirstName] = useState(userData?.name?.split(' ')[0] || '');
+  const [lastName, setLastName] = useState(userData?.name?.split(' ')[1] || '');
+  const [email, setEmail] = useState(userData?.email || '');
+  const [year, setYear] = useState(userData?.year?.toString() || '1');
+  const [department, setDepartment] = useState(userData?.department || 'IT');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
-  const handleSaveChanges = (e: React.FormEvent) => {
+  const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateUser({
-      ...userData,
-      name: `${firstName} ${lastName}`,
-      email,
-      year,
-      department,
-    });
-    toast.success('Profile updated successfully!');
+    
+    try {
+      const updatedData = {
+        name: `${firstName} ${lastName}`,
+        email,
+        year: parseInt(year),
+        department,
+      };
+
+      // Update in database
+      const { data, error } = await (supabase as any)
+        .from('users')
+        .update(updatedData)
+        .eq('user_id', userData.user_id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local storage and parent component
+      const updatedUserData = { ...userData, ...data };
+      localStorage.setItem('userData', JSON.stringify(updatedUserData));
+      onUserDataUpdate(updatedUserData);
+
+      toast.success('Profile updated successfully!');
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      toast.error(error.message || 'Failed to update profile');
+    }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (newPassword.length < 6) {
       toast.error('Password must be at least 6 characters');
       return;
     }
-    toast.success('Password changed successfully!');
-    setCurrentPassword('');
-    setNewPassword('');
+
+    try {
+      // First verify current password
+      const { data: userCheck } = await (supabase as any)
+        .from('users')
+        .select('password')
+        .eq('user_id', userData.user_id)
+        .single();
+
+      if (userCheck.password !== currentPassword) {
+        toast.error('Current password is incorrect');
+        return;
+      }
+
+      // Update password
+      const { error } = await (supabase as any)
+        .from('users')
+        .update({ password: newPassword })
+        .eq('user_id', userData.user_id);
+
+      if (error) throw error;
+
+      toast.success('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      toast.error(error.message || 'Failed to update password');
+    }
   };
 
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
