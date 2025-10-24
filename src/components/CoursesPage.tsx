@@ -21,7 +21,7 @@ export function CoursesPage({ onOpenQuestionnaire, onOpenChat }: CoursesPageProp
     return ['IT', 'CS', 'Statistics', 'Math', 'CS & Statistics', 'CS & Math', 'Math & Statistics'];
   };
 
-  const getSubjects = (department: string, year: number) => {
+  const getSubjects = (department: string, _year: number) => {
     // Mock subject data with progress
     const subjectsByDept: Record<string, any[]> = {
       'IT': [

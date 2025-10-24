@@ -33,7 +33,7 @@ export class AuthService {
   // Sign up a new user (simple database insert)
   static async signUp(data: RegisterData) {
     try {
-      const { data: userData, error } = await supabase
+      const { data: userData, error } = await (supabase as any)
         .from('users')
         .insert({
           name: `${data.firstName} ${data.lastName}`,
@@ -61,7 +61,7 @@ export class AuthService {
   // Sign in existing user (simple password check)
   static async signIn(data: LoginData) {
     try {
-      const { data: userData, error } = await supabase
+      const { data: userData, error } = await (supabase as any)
         .from('users')
         .select('*')
         .eq('email', data.email)
@@ -85,7 +85,7 @@ export class AuthService {
   // Get user by ID
   static async getUserById(userId: number): Promise<User | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('users')
         .select('*')
         .eq('user_id', userId)
@@ -102,7 +102,7 @@ export class AuthService {
   // Update user profile
   static async updateProfile(userId: number, updates: UserUpdate) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('users')
         .update(updates)
         .eq('user_id', userId)
@@ -120,7 +120,7 @@ export class AuthService {
   // Check if email exists (for validation)
   static async emailExists(email: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('users')
         .select('user_id')
         .eq('email', email)

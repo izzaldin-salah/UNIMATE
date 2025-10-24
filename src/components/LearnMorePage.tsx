@@ -1,5 +1,5 @@
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Brain, BookCheck, BarChart3, Sparkles, Database, Cpu } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
