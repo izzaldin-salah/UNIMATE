@@ -126,7 +126,7 @@ export function LoginRegister({ onLogin }: LoginRegisterProps) {
             Your AI-powered study companion for academic success. Get personalized help, track your progress, and ace your exams.
           </p>
           <ImageWithFallback
-            src="https://images.unsplash.com/photo-1757141975400-27fa436fbfbc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdHVkZW50cyUyMHN0dWR5aW5nJTIwQUklMjB0ZWNobm9sb2d5fGVufDF8fHx8MTc2MTEwNDMzOHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+            src="https://media.gettyimages.com/id/146711609/photo/to-go-with-afp-story-by-simon-martelli.jpg?s=1024x1024&w=gi&k=20&c=GbPPSte1W19H8MqLSrxTBEpua2Bn6S_jVAgLE1Z0zWg="
             alt="Students learning with AI"
             className="w-full rounded-lg shadow-2xl"
           />
