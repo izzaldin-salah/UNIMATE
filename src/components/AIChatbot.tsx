@@ -32,6 +32,7 @@ export function AIChatbot({ initialSubject }: AIChatbotProps) {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialSubject) {
@@ -40,10 +41,12 @@ export function AIChatbot({ initialSubject }: AIChatbotProps) {
     }
   }, [initialSubject]);
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages, isTyping]);
 
   const handleSend = () => {
@@ -110,7 +113,7 @@ export function AIChatbot({ initialSubject }: AIChatbotProps) {
 
   return (
     <Card
-      className={`fixed bottom-6 right-6 shadow-2xl z-50 transition-all ${
+      className={`fixed bottom-6 right-6 shadow-2xl z-50 transition-all overflow-hidden ${
         isExpanded ? 'w-[600px] h-[700px]' : 'w-[400px] h-[500px]'
       }`}
     >
@@ -139,9 +142,9 @@ export function AIChatbot({ initialSubject }: AIChatbotProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 flex flex-col h-[calc(100%-4rem)]">
+      <CardContent className="p-4 flex flex-col h-[calc(100%-4rem)] overflow-hidden">
         {/* Subject Selector */}
-        <div className="mb-4">
+        <div className="mb-4 flex-shrink-0">
           <Select value={subject} onValueChange={setSubject}>
             <SelectTrigger>
               <SelectValue placeholder="Select subject" />
@@ -158,21 +161,21 @@ export function AIChatbot({ initialSubject }: AIChatbotProps) {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 pr-4 overflow-y-auto min-h-0" ref={scrollRef}>
+          <div className="space-y-4 pb-2">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[75%] rounded-lg p-3 break-words ${
                     message.sender === 'user'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-900'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{message.text}</p>
                   <p
                     className={`text-xs mt-1 ${
                       message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
@@ -199,22 +202,24 @@ export function AIChatbot({ initialSubject }: AIChatbotProps) {
                 </div>
               </div>
             )}
+            {/* Auto-scroll anchor */}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
         {/* Input */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2 mt-4 items-center flex-shrink-0">
           <Input
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask a question..."
-            className="flex-1"
+            className="flex-1 min-w-0"
           />
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" className="flex-shrink-0">
             <Mic className="w-4 h-4" />
           </Button>
-          <Button onClick={handleSend} size="icon">
+          <Button onClick={handleSend} size="icon" className="flex-shrink-0">
             <Send className="w-4 h-4" />
           </Button>
         </div>
