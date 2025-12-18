@@ -6,6 +6,7 @@ import { LearnMorePage } from './components/LearnMorePage';
 import { CoursesPage } from './components/CoursesPage';
 import { ProfilePage } from './components/ProfilePage';
 import { DashboardPage } from './components/DashboardPage';
+import { SubjectDetailsPage } from './components/SubjectDetailsPage';
 import { QuestionnaireModal } from './components/QuestionnaireModal';
 import { AIChatbot } from './components/AIChatbot';
 import { Navbar } from './components/Navbar';
@@ -18,6 +19,7 @@ export default function App() {
   const [userData, setUserData] = useState<any>(null);
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedSubjectName, setSelectedSubjectName] = useState('');
   const [chatSubject, setChatSubject] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -93,6 +95,11 @@ export default function App() {
     setChatSubject(subject);
   };
 
+  const handleSubjectClick = (subjectName: string) => {
+    setSelectedSubjectName(subjectName);
+    setCurrentPage('subject-details');
+  };
+
   // Show loading state while checking for saved session
   if (isLoading) {
     return (
@@ -129,12 +136,19 @@ export default function App() {
         <CoursesPage
           onOpenQuestionnaire={handleOpenQuestionnaire}
           onOpenChat={handleOpenChat}
+          onSubjectClick={handleSubjectClick}
         />
       )}
       {currentPage === 'profile' && (
         <ProfilePage userData={userData} onUserDataUpdate={handleUpdateUser} />
       )}
       {currentPage === 'dashboard' && <DashboardPage />}
+      {currentPage === 'subject-details' && (
+        <SubjectDetailsPage 
+          onNavigate={handleNavigate}
+          subjectName={selectedSubjectName}
+        />
+      )}
 
       {/* Persistent AI Chatbot */}
       <AIChatbot initialSubject={chatSubject} />
