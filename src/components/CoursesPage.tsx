@@ -23,58 +23,107 @@ export function CoursesPage({ onOpenQuestionnaire, onOpenChat, onSubjectClick }:
     return ['IT', 'CS', 'Statistics', 'Math', 'CS & Statistics', 'CS & Math', 'Math & Statistics'];
   };
 
-  const getSubjects = (department: string, _year: number, semester: number) => {
-    // Mock subject data with progress organized by semester
-    const subjectsByDept: Record<string, Record<number, any[]>> = {
+  const getSubjects = (department: string, year: number, semester: number) => {
+    // Real subject data organized by department, year, and semester
+    const subjectsByDept: Record<string, Record<number, Record<number, any[]>>> = {
       'IT': {
-        1: [
-          { name: 'Programming Fundamentals', progress: 75, chapters: 12 },
-          { name: 'Calculus I', progress: 60, chapters: 10 },
-          { name: 'Introduction to IT', progress: 85, chapters: 8 },
-          { name: 'Digital Logic', progress: 45, chapters: 15 },
-        ],
-        2: [
-          { name: 'Programming Fundamentals', progress: 65, chapters: 14 },
-          { name: 'Calculus II', progress: 60, chapters: 10 },
-          { name: 'Vector Analysis', progress: 85, chapters: 8 },
-          { name: 'Statistics and Probability', progress: 45, chapters: 15 },
-          { name: 'Arithmetic', progress: 30, chapters: 14 },
-        ],
+        1: {
+          1: [
+            { name: 'Principles of computing', progress: 75, chapters: 12 },
+            { name: 'Descriptive statistics', progress: 60, chapters: 10 },
+            { name: 'Information Technology Fundamentals', progress: 85, chapters: 15 },
+            { name: 'Islamic culture', progress: 45, chapters: 8 },
+            { name: 'Sudanese Studies', progress: 30, chapters: 6 },
+            { name: 'Arabic', progress: 55, chapters: 8 },
+          ],
+          2: [
+            { name: 'Matrix Algebra', progress: 40, chapters: 10 },
+            { name: 'Fundamentals of programming', progress: 70, chapters: 14 },
+            { name: 'Accounting principles', progress: 25, chapters: 12 },
+            { name: 'Physics', progress: 50, chapters: 13 },
+            { name: 'Computer architecture and equipments', progress: 65, chapters: 15 },
+          ],
+        },
+        2: {
+          1: [
+            { name: 'Principles of programming', progress: 80, chapters: 12 },
+            { name: 'Statistics and probability', progress: 55, chapters: 10 },
+            { name: 'Data structures and algorithms', progress: 90, chapters: 15 },
+            { name: 'Linear algebra', progress: 35, chapters: 9 },
+            { name: 'Economic', progress: 20, chapters: 8 },
+            { name: 'Discrete structure', progress: 45, chapters: 11 },
+          ],
+          2: [
+            { name: 'Introduction of statistical inference', progress: 60, chapters: 10 },
+            { name: 'Object Oriented Programming', progress: 85, chapters: 14 },
+            { name: 'Software requirement engineering', progress: 40, chapters: 12 },
+            { name: 'Communication skills', progress: 70, chapters: 6 },
+            { name: 'File management', progress: 50, chapters: 8 },
+          ],
+        },
+        3: {
+          1: [
+            { name: 'Advanced database', progress: 65, chapters: 12 },
+            { name: 'Commercial programming', progress: 55, chapters: 10 },
+            { name: 'Networks 2', progress: 75, chapters: 11 },
+            { name: 'Software engineering', progress: 80, chapters: 13 },
+            { name: 'Operating System', progress: 70, chapters: 14 },
+          ],
+          2: [
+            { name: 'Compiler', progress: 30, chapters: 12 },
+            { name: 'Assembly', progress: 45, chapters: 10 },
+            { name: 'Commercial programming', progress: 60, chapters: 11 },
+            { name: 'Computer architecture', progress: 50, chapters: 13 },
+          ],
+        },
       },
-      'CS': {
-        1: [
-          { name: 'Computer Architecture', progress: 70, chapters: 10 },
-          { name: 'Discrete Mathematics', progress: 55, chapters: 12 },
-        ],
-        2: [
-          { name: 'Programming Languages', progress: 80, chapters: 9 },
-          { name: 'Software Engineering', progress: 65, chapters: 11 },
-        ],
-      },
-      'Math': {
-        1: [
-          { name: 'Linear Algebra', progress: 90, chapters: 8 },
-          { name: 'Calculus I', progress: 85, chapters: 10 },
-        ],
-        2: [
-          { name: 'Calculus II', progress: 75, chapters: 10 },
-          { name: 'Differential Equations', progress: 50, chapters: 12 },
-          { name: 'Abstract Algebra', progress: 40, chapters: 9 },
-        ],
-      },
-      'Statistics': {
-        1: [
-          { name: 'Probability Theory', progress: 85, chapters: 10 },
-          { name: 'Statistical Inference', progress: 70, chapters: 11 },
-        ],
-        2: [
-          { name: 'Regression Analysis', progress: 60, chapters: 8 },
-          { name: 'Time Series Analysis', progress: 45, chapters: 9 },
-        ],
+      'General Departments': {
+        1: {
+          1: [
+            { name: 'Arabic', progress: 65, chapters: 8 },
+            { name: 'Sudanese studies', progress: 50, chapters: 6 },
+            { name: 'Islamic culture', progress: 70, chapters: 8 },
+            { name: 'Calculus 1', progress: 80, chapters: 12 },
+            { name: 'Algebra', progress: 55, chapters: 10 },
+            { name: 'Basics of mathematics', progress: 75, chapters: 14 },
+            { name: 'English', progress: 60, chapters: 8 },
+          ],
+          2: [
+            { name: 'Object oriented programming', progress: 85, chapters: 14 },
+            { name: 'Arithmetic', progress: 45, chapters: 10 },
+            { name: 'Programming Fundamentals', progress: 90, chapters: 14 },
+            { name: 'Calculus 2', progress: 70, chapters: 12 },
+            { name: 'Statistics and Probability', progress: 55, chapters: 11 },
+            { name: 'Analytic geometry', progress: 40, chapters: 9 },
+          ],
+        },
+        2: {
+          2: [
+            { name: 'Real analysis 1', progress: 60, chapters: 12 },
+            { name: 'File management', progress: 75, chapters: 8 },
+            { name: 'Introduction to Inferential Statistics', progress: 50, chapters: 10 },
+            { name: 'Differential equations 2', progress: 65, chapters: 11 },
+            { name: 'Vectors analysis', progress: 55, chapters: 9 },
+          ],
+        },
+        3: {
+          1: [
+            { name: 'Database', progress: 70, chapters: 12 },
+            { name: 'Operating System', progress: 80, chapters: 13 },
+            { name: 'Software engineering', progress: 65, chapters: 12 },
+            { name: 'Computer networking', progress: 75, chapters: 11 },
+          ],
+          2: [
+            { name: 'Compiler', progress: 35, chapters: 12 },
+            { name: 'Assembly', progress: 50, chapters: 10 },
+            { name: 'Commercial programming', progress: 60, chapters: 11 },
+            { name: 'Computer architecture', progress: 45, chapters: 13 },
+          ],
+        },
       },
     };
 
-    return subjectsByDept[department]?.[semester] || subjectsByDept['IT']?.[1] || [];
+    return subjectsByDept[department]?.[year]?.[semester] || [];
   };
 
   const resetSelection = () => {

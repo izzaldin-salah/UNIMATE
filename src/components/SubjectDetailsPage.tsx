@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BookOpen, 
   FileText, 
@@ -18,9 +18,12 @@ import {
   MoreVertical,
   Check,
   LayoutGrid,
-  List
+  List,
+  Send,
+  Paperclip
 } from 'lucide-react';
 import { getSubjectPDFs } from '../lib/storage';
+import { sendMessageToAI } from '../lib/chat';
 
 // ==============================================================================
 // 1. MOCK DATA 
@@ -291,19 +294,184 @@ const QuizView = () => {
     difficulty: 'Medium',
     types: { mcq: true, trueFalse: false, shortAnswer: false }
   });
+  const [generatedQuiz, setGeneratedQuiz] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [userAnswers, setUserAnswers] = useState<{[key: number]: any}>({});
+  const [gradingResults, setGradingResults] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<number>(900); // 15 minutes in seconds
 
-  const handleGenerate = () => {
+  // Timer countdown effect
+  useEffect(() => {
+    if (step !== 'preview' || isSubmitting) return;
+
+    const timer = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmit(); // Auto-submit when time runs out
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [step, isSubmitting]);
+
+  const handleGenerate = async () => {
     setStep('loading');
-    setTimeout(() => {
+    setError(null);
+    setTimeRemaining(900); // Reset timer to 15 minutes
+
+    try {
+      // Get selected question types
+      const selectedTypes = Object.entries(config.types)
+        .filter(([_, enabled]) => enabled)
+        .map(([type, _]) => {
+          if (type === 'mcq') return 'Multiple Choice';
+          if (type === 'trueFalse') return 'True/False';
+          if (type === 'shortAnswer') return 'Short Answer';
+          return type;
+        });
+
+      // Build the prompt for AI
+      const prompt = `Generate a quiz with the following specifications:
+- Number of questions: ${config.count}
+- Difficulty level: ${config.difficulty}
+- Question types: ${selectedTypes.join(', ')}
+- Subject: Programming Fundamentals (based on uploaded lectures about C++ fundamentals, loops, conditions, arrays, strings, functions, and pointers)
+
+Please generate the quiz in JSON format. Each question should have:
+- "id": unique number
+- "question": the question text
+- "type": "mcq", "trueFalse", or "shortAnswer"
+- "options": array of options (for MCQ and True/False only)
+- "correct": correct answer index (for MCQ and True/False) or correct answer text (for short answer)
+
+Return ONLY the JSON array, nothing else. Example format:
+[
+  {
+    "id": 1,
+    "question": "What is a pointer?",
+    "type": "mcq",
+    "options": ["A variable", "A memory address", "A function", "A loop"],
+    "correct": 1
+  }
+]`;
+
+      // Call AI API
+      const response = await sendMessageToAI(prompt, []);
+
+      // Try to parse the JSON response
+      let quizData;
+      try {
+        // Extract JSON from response (in case AI adds extra text)
+        const jsonMatch = response.match(/\[\s*{[\s\S]*}\s*\]/);
+        if (jsonMatch) {
+          quizData = JSON.parse(jsonMatch[0]);
+        } else {
+          quizData = JSON.parse(response);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse quiz JSON:', parseError);
+        throw new Error('AI generated invalid quiz format. Please try again.');
+      }
+
+      setGeneratedQuiz(quizData);
       setStep('preview');
-    }, 2500);
+    } catch (err: any) {
+      console.error('Quiz generation error:', err);
+      setError(err.message || 'Failed to generate quiz. Please try again.');
+      setStep('config');
+    }
   };
 
-  const toggleType = (type: string) => {
+  const toggleType = (type: 'mcq' | 'trueFalse' | 'shortAnswer') => {
     setConfig(prev => ({
       ...prev,
       types: { ...prev.types, [type]: !prev.types[type] }
     }));
+  };
+
+  const handleAnswerChange = (questionIdx: number, answer: any) => {
+    setUserAnswers(prev => ({
+      ...prev,
+      [questionIdx]: answer
+    }));
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Build the grading request
+      const gradingPrompt = `Please grade this quiz submission. Here are the questions and student answers:
+
+${generatedQuiz.map((q, idx) => {
+  const userAnswer = userAnswers[idx];
+  let answerText = '';
+  
+  if (q.type === 'mcq' || q.type === 'trueFalse') {
+    answerText = userAnswer !== undefined ? q.options[userAnswer] : 'Not answered';
+  } else {
+    answerText = userAnswer || 'Not answered';
+  }
+  
+  return `Question ${idx + 1}: ${q.question}
+Correct Answer: ${q.type === 'shortAnswer' ? q.correct : q.options[q.correct]}
+Student Answer: ${answerText}`;
+}).join('\n\n')}
+
+Please provide grading results in JSON format:
+{
+  "totalQuestions": ${generatedQuiz.length},
+  "correctAnswers": <number of correct answers>,
+  "score": <percentage score>,
+  "grade": "<letter grade A-F>",
+  "feedback": "<overall feedback>",
+  "questionResults": [
+    {
+      "questionNumber": 1,
+      "correct": true/false,
+      "feedback": "<specific feedback for this question>"
+    }
+  ]
+}
+
+Return ONLY the JSON, nothing else.`;
+
+      const response = await sendMessageToAI(gradingPrompt, []);
+
+      // Parse the grading results
+      let results;
+      try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          results = JSON.parse(jsonMatch[0]);
+        } else {
+          results = JSON.parse(response);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse grading results:', parseError);
+        throw new Error('Failed to process grading results. Please try again.');
+      }
+
+      setGradingResults(results);
+      setStep('results');
+    } catch (err: any) {
+      console.error('Grading error:', err);
+      setError(err.message || 'Failed to grade quiz. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (step === 'loading') {
@@ -324,43 +492,198 @@ const QuizView = () => {
   }
 
   if (step === 'preview') {
+    const timeWarning = timeRemaining <= 60; // Show warning when 1 minute or less
+    const timeCritical = timeRemaining <= 30; // Show critical when 30 seconds or less
+
     return (
       <div className="max-w-3xl mx-auto animate-in slide-in-from-bottom-8 fade-in duration-500">
+        {/* Timer Banner */}
+        <div className={`mb-4 p-4 rounded-lg border-2 flex items-center justify-between transition-all ${
+          timeCritical ? 'bg-red-50 border-red-500 animate-pulse' :
+          timeWarning ? 'bg-orange-50 border-orange-500' :
+          'bg-blue-50 border-blue-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <Clock className={`w-5 h-5 ${
+              timeCritical ? 'text-red-600' :
+              timeWarning ? 'text-orange-600' :
+              'text-blue-600'
+            }`} />
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Time Remaining</p>
+              <p className="text-xs text-slate-600">Quiz will auto-submit when time expires</p>
+            </div>
+          </div>
+          <div className={`text-3xl font-bold ${
+            timeCritical ? 'text-red-600' :
+            timeWarning ? 'text-orange-600' :
+            'text-blue-600'
+          }`}>
+            {formatTime(timeRemaining)}
+          </div>
+        </div>
+
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Brain className="w-6 h-6 text-blue-600" />
-            Generated Quiz
+            Generated Quiz ({generatedQuiz.length} Questions)
           </h2>
           <Button variant="secondary" onClick={() => setStep('config')}>New Quiz</Button>
         </div>
 
         <div className="space-y-6 mb-8">
-          {MOCK_QUIZ_QUESTIONS.map((q, idx) => (
-            <Card key={q.id} className="p-6 overflow-hidden relative">
+          {generatedQuiz.map((q, idx) => (
+            <Card key={q.id || idx} className="p-6 overflow-hidden relative">
               <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
               <div className="flex items-start gap-4 mb-4">
                 <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 font-bold rounded-lg text-sm">
                   {idx + 1}
                 </span>
-                <p className="text-lg font-medium text-slate-800 pt-0.5">{q.question}</p>
+                <div className="flex-1">
+                  <p className="text-lg font-medium text-slate-800 mb-1">{q.question}</p>
+                  {q.type && (
+                    <span className="inline-block text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                      {q.type === 'mcq' ? 'Multiple Choice' : q.type === 'trueFalse' ? 'True/False' : 'Short Answer'}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="space-y-3 pl-12">
-                {q.options.map((opt, optIdx) => (
-                  <label key={optIdx} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition-all group">
-                    <div className="w-4 h-4 rounded-full border border-slate-300 group-hover:border-blue-500 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    </div>
-                    <span className="text-slate-700">{opt}</span>
-                  </label>
-                ))}
-              </div>
+              
+              {/* Multiple Choice or True/False Options */}
+              {q.options && Array.isArray(q.options) && (
+                <div className="space-y-3 pl-12">
+                  {q.options.map((opt: string, optIdx: number) => {
+                    const isSelected = userAnswers[idx] === optIdx;
+                    return (
+                      <label 
+                        key={optIdx} 
+                        onClick={() => handleAnswerChange(idx, optIdx)}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all group ${
+                          isSelected 
+                            ? 'border-blue-500 bg-blue-50' 
+                            : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/50'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                          isSelected 
+                            ? 'border-blue-500 bg-blue-500' 
+                            : 'border-slate-300 group-hover:border-blue-500'
+                        }`}>
+                          {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                        </div>
+                        <span className={isSelected ? 'text-blue-900 font-medium' : 'text-slate-700'}>{opt}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Short Answer Input */}
+              {q.type === 'shortAnswer' && (
+                <div className="pl-12">
+                  <textarea
+                    value={userAnswers[idx] || ''}
+                    onChange={(e) => handleAnswerChange(idx, e.target.value)}
+                    placeholder="Type your answer here..."
+                    className="w-full p-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm resize-none"
+                    rows={3}
+                  />
+                </div>
+              )}
             </Card>
           ))}
           
           <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-            <p className="text-slate-500 mb-4">... 8 more questions generated</p>
-            <Button variant="primary" className="w-48" disabled>Submit Quiz (Preview)</Button>
+            <Button 
+              variant="primary" 
+              className="w-48" 
+              onClick={handleSubmit}
+              loading={isSubmitting}
+              disabled={isSubmitting || Object.keys(userAnswers).length === 0}
+            >
+              {isSubmitting ? 'Grading...' : 'Submit Quiz'}
+            </Button>
+            <p className="text-xs text-slate-400 mt-3">
+              {Object.keys(userAnswers).length} of {generatedQuiz.length} questions answered
+            </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'results' && gradingResults) {
+    return (
+      <div className="max-w-3xl mx-auto animate-in slide-in-from-bottom-8 fade-in duration-500">
+        {/* Results Header */}
+        <Card className="p-8 mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-3xl font-bold mb-4 shadow-lg">
+              {Math.round(gradingResults.score)}%
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Quiz Completed!</h2>
+            <p className="text-lg text-slate-600 mb-4">Grade: <span className="font-bold text-blue-600">{gradingResults.grade}</span></p>
+            <div className="flex items-center justify-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <span className="text-slate-700">{gradingResults.correctAnswers} Correct</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Circle className="w-5 h-5 text-red-600" />
+                <span className="text-slate-700">{gradingResults.totalQuestions - gradingResults.correctAnswers} Incorrect</span>
+              </div>
+            </div>
+            {gradingResults.feedback && (
+              <p className="mt-4 text-slate-600 italic border-t border-blue-200 pt-4">"{gradingResults.feedback}"</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Question-by-Question Results */}
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">Detailed Results</h3>
+          <Button variant="secondary" onClick={() => { setStep('config'); setUserAnswers({}); setGradingResults(null); }}>Take Another Quiz</Button>
+        </div>
+
+        <div className="space-y-4 mb-8">
+          {gradingResults.questionResults?.map((result: any, idx: number) => {
+            const question = generatedQuiz[idx];
+            const userAnswer = userAnswers[idx];
+            const isCorrect = result.correct;
+
+            return (
+              <Card key={idx} className={`p-6 border-l-4 ${
+                isCorrect ? 'border-green-500 bg-green-50/30' : 'border-red-500 bg-red-50/30'
+              }`}>
+                <div className="flex items-start gap-4 mb-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isCorrect ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                  }`}>
+                    {isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-800 mb-2">Question {idx + 1}: {question.question}</p>
+                    
+                    {question.type === 'shortAnswer' ? (
+                      <>
+                        <p className="text-sm text-slate-600 mb-1">Your Answer: <span className="font-medium">{userAnswer || 'Not answered'}</span></p>
+                        <p className="text-sm text-slate-600">Correct Answer: <span className="font-medium text-green-700">{question.correct}</span></p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-600 mb-1">Your Answer: <span className="font-medium">{userAnswer !== undefined ? question.options[userAnswer] : 'Not answered'}</span></p>
+                        <p className="text-sm text-slate-600">Correct Answer: <span className="font-medium text-green-700">{question.options[question.correct]}</span></p>
+                      </>
+                    )}
+                    
+                    {result.feedback && (
+                      <p className="text-sm text-slate-500 italic mt-2 pl-3 border-l-2 border-slate-300">{result.feedback}</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       </div>
     );
@@ -368,6 +691,20 @@ const QuizView = () => {
 
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in duration-500">
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 animate-in slide-in-from-top-2 fade-in">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-900 mb-1">Failed to Generate Quiz</p>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
+            <Circle className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Intro Banner */}
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-lg mb-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-16 -mt-16 blur-3xl"></div>
@@ -484,6 +821,216 @@ const QuizView = () => {
   );
 };
 
+const ChatView = () => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = async (e: any) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const newMsg = {
+      id: messages.length + 1,
+      role: 'user',
+      content: input,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages([...messages, newMsg]);
+    setInput('');
+    setIsTyping(true);
+
+    try {
+      // Convert messages to chat history format
+      const conversationHistory = messages.map(msg => ({
+        role: (msg.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content: msg.content
+      }));
+
+      // Call real AI via n8n webhook
+      const aiResponse = await sendMessageToAI(newMsg.content, conversationHistory);
+      
+      setMessages(prev => [...prev, {
+        id: prev.length + 1,
+        role: 'ai',
+        content: aiResponse,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, {
+        id: prev.length + 1,
+        role: 'ai',
+        content: "Sorry, I'm having trouble connecting right now. Please try again in a moment.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const suggestedPrompts = [
+    "Summarize Lecture 3",
+    "Generate a practice question",
+    "Explain 'Polymorphism'"
+  ];
+
+  return (
+    <div className="h-[700px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Chat Header */}
+      <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800">UniMate Assistant</h3>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-xs text-slate-500 font-medium">Online & Ready</span>
+            </div>
+          </div>
+        </div>
+        <Button 
+          variant="ghost" 
+          className="text-slate-400 hover:text-red-500" 
+          icon={Circle}
+          onClick={() => {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+              setMessages([]);
+            }
+          }}
+        >
+          Clear Chat
+        </Button>
+      </div>
+
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
+        
+        {/* Welcome Info */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-blue-50 text-blue-800 text-xs font-medium px-3 py-1 rounded-full border border-blue-100">
+            This conversation is grounded in your uploaded lectures.
+          </div>
+        </div>
+
+        {messages.map((msg) => (
+          <div 
+            key={msg.id} 
+            className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div className={`flex max-w-[80%] md:max-w-[70%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              
+              {/* Avatar */}
+              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${
+                msg.role === 'user' 
+                  ? 'bg-slate-200 text-slate-600' 
+                  : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+              }`}>
+                {msg.role === 'user' ? 'ME' : <Sparkles className="w-4 h-4" />}
+              </div>
+
+              {/* Bubble */}
+              <div className="flex flex-col gap-1">
+                <div className={`px-5 py-3.5 rounded-2xl shadow-sm text-sm leading-relaxed ${
+                  msg.role === 'user' 
+                    ? 'bg-blue-600 text-white rounded-br-none' 
+                    : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'
+                }`}>
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                </div>
+                <span className={`text-[10px] text-slate-400 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                  {msg.timestamp}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {isTyping && (
+          <div className="flex justify-start w-full">
+            <div className="flex max-w-[80%] gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="bg-white px-4 py-3 rounded-2xl rounded-bl-none border border-slate-100 shadow-sm flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="p-4 bg-white border-t border-slate-100">
+        
+        {/* Suggested Prompts */}
+        {messages.length < 4 && (
+          <div className="flex gap-2 overflow-x-auto pb-3 mb-1 scrollbar-hide">
+            {suggestedPrompts.map((prompt, idx) => (
+              <button 
+                key={idx}
+                onClick={() => setInput(prompt)}
+                className="whitespace-nowrap px-3 py-1.5 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 text-xs font-medium rounded-lg border border-slate-200 transition-colors"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleSend} className="relative flex items-end gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
+          
+          <button type="button" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-slate-200 rounded-lg transition-colors">
+            <Paperclip className="w-5 h-5" />
+          </button>
+
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e);
+              }
+            }}
+            placeholder="Ask about your lectures..."
+            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-800 placeholder-slate-400 resize-none py-2.5 max-h-32 focus:outline-none"
+            rows={1}
+            style={{ minHeight: '44px' }}
+          />
+
+          <button 
+            type="submit" 
+            disabled={!input.trim()}
+            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </form>
+        <div className="text-center mt-2">
+           <p className="text-[10px] text-slate-400">UniMate AI can make mistakes. Please verify important information from the lecture notes.</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ==============================================================================
 // 4. MAIN PAGE
 // ==============================================================================
@@ -499,7 +1046,7 @@ export function SubjectDetailsPage({ onNavigate, subjectName = "Programming Fund
   const tabs = [
     { id: 'lectures', label: 'Lectures', icon: BookOpen },
     { id: 'quiz', label: 'Quiz', icon: Brain },
-    { id: 'chat', label: 'AI Chat', icon: MessageSquare, disabled: true }
+    { id: 'chat', label: 'AI Chat', icon: MessageSquare }
   ];
 
   return (
@@ -513,7 +1060,7 @@ export function SubjectDetailsPage({ onNavigate, subjectName = "Programming Fund
             Courses
           </button>
           <ChevronRight className="w-4 h-4" />
-          <span className="hover:text-blue-600 cursor-pointer transition-colors">{SUBJECT_DATA.department}</span>
+          <button onClick={() => onNavigate('courses')} className="hover:text-blue-600 cursor-pointer transition-colors">{SUBJECT_DATA.department}</button>
           <ChevronRight className="w-4 h-4" />
           <span className="text-slate-900 font-medium">{subjectName}</span>
         </div>
@@ -533,9 +1080,6 @@ export function SubjectDetailsPage({ onNavigate, subjectName = "Programming Fund
               <span>{SUBJECT_DATA.year}</span>
             </div>
           </div>
-          <Button variant="outline" className="hidden md:flex" icon={AlertCircle}>
-            Report Issue
-          </Button>
         </div>
 
         {/* Tabs Navigation */}
@@ -575,6 +1119,7 @@ export function SubjectDetailsPage({ onNavigate, subjectName = "Programming Fund
         <div className="min-h-[400px]">
           {activeTab === 'lectures' && <LecturesView subjectName={subjectName} />}
           {activeTab === 'quiz' && <QuizView />}
+          {activeTab === 'chat' && <ChatView />}
         </div>
 
       </main>
