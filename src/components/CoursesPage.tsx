@@ -3,15 +3,14 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { BookOpen, MessageSquare, FileText, GraduationCap } from 'lucide-react';
+import { BookOpen, FileText, GraduationCap } from 'lucide-react';
 
 interface CoursesPageProps {
   onOpenQuestionnaire: (subject: string) => void;
-  onOpenChat: (subject: string) => void;
   onSubjectClick?: (subjectName: string) => void;
 }
 
-export function CoursesPage({ onOpenQuestionnaire, onOpenChat, onSubjectClick }: CoursesPageProps) {
+export function CoursesPage({ onOpenQuestionnaire, onSubjectClick }: CoursesPageProps) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
@@ -312,15 +311,7 @@ export function CoursesPage({ onOpenQuestionnaire, onOpenChat, onSubjectClick }:
                       <FileText className="w-4 h-4 mr-2" />
                       Questionnaire
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onOpenChat(subject.name)}
-                      className="flex-1"
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Chat with AI
-                    </Button>
+
                     <Button
                       variant="secondary"
                       size="sm"

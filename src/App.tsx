@@ -8,7 +8,6 @@ import { ProfilePage } from './components/ProfilePage';
 import { DashboardPage } from './components/DashboardPage';
 import { SubjectDetailsPage } from './components/SubjectDetailsPage';
 import { QuestionnaireModal } from './components/QuestionnaireModal';
-import { AIChatbot } from './components/AIChatbot';
 import { Navbar } from './components/Navbar';
 
 const STORAGE_KEY = 'unimate_user_session';
@@ -20,7 +19,6 @@ export default function App() {
   const [questionnaireOpen, setQuestionnaireOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedSubjectName, setSelectedSubjectName] = useState('');
-  const [chatSubject, setChatSubject] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check for saved session on mount
@@ -91,10 +89,6 @@ export default function App() {
     setQuestionnaireOpen(true);
   };
 
-  const handleOpenChat = (subject: string) => {
-    setChatSubject(subject);
-  };
-
   const handleSubjectClick = (subjectName: string) => {
     setSelectedSubjectName(subjectName);
     setCurrentPage('subject-details');
@@ -135,7 +129,6 @@ export default function App() {
       {currentPage === 'courses' && (
         <CoursesPage
           onOpenQuestionnaire={handleOpenQuestionnaire}
-          onOpenChat={handleOpenChat}
           onSubjectClick={handleSubjectClick}
         />
       )}
@@ -150,16 +143,11 @@ export default function App() {
         />
       )}
 
-      {/* Persistent AI Chatbot */}
-      <AIChatbot initialSubject={chatSubject} />
-
-      {/* Questionnaire Modal */}
       <QuestionnaireModal
         isOpen={questionnaireOpen}
         onClose={() => setQuestionnaireOpen(false)}
         subject={selectedSubject}
       />
-
       <Toaster />
     </div>
   );

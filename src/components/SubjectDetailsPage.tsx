@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   BookOpen, 
   FileText, 
@@ -6,7 +6,6 @@ import {
   MessageSquare, 
   ChevronRight, 
   Search, 
-  Filter, 
   Download, 
   Eye, 
   Sparkles, 
@@ -14,8 +13,6 @@ import {
   Circle, 
   Clock, 
   AlertCircle,
-  ArrowLeft,
-  MoreVertical,
   Check,
   LayoutGrid,
   List,
@@ -24,6 +21,7 @@ import {
 } from 'lucide-react';
 import { getSubjectPDFs } from '../lib/storage';
 import { sendMessageToAI } from '../lib/chat';
+import { PDFViewerPage } from './PDFViewerPage';
 
 // ==============================================================================
 // 1. MOCK DATA 
@@ -36,30 +34,6 @@ const SUBJECT_DATA = {
   code: "CS-101"
 };
 
-const LECTURES_DATA = [
-  { id: 1, title: "Lecture 1: Introduction to C++", size: "1.2 MB", pages: 12, date: "Oct 10, 2024" },
-  { id: 2, title: "Lecture 2: Variables & Data Types", size: "2.4 MB", pages: 18, date: "Oct 17, 2024" },
-  { id: 3, title: "Lecture 3: Loops & Conditions", size: "3.1 MB", pages: 24, date: "Oct 24, 2024" },
-  { id: 4, title: "Lecture 4: Arrays & Strings", size: "2.8 MB", pages: 20, date: "Oct 31, 2024" },
-  { id: 5, title: "Lecture 5: Functions & Scope", size: "1.9 MB", pages: 15, date: "Nov 07, 2024" },
-  { id: 6, title: "Lecture 6: Pointers Basics", size: "4.5 MB", pages: 32, date: "Nov 14, 2024" },
-];
-
-const MOCK_QUIZ_QUESTIONS = [
-  {
-    id: 1,
-    question: "Which loop is guaranteed to execute at least once?",
-    options: ["For Loop", "While Loop", "Do-While Loop", "Foreach Loop"],
-    correct: 2
-  },
-  {
-    id: 2,
-    question: "What is the correct syntax to output 'Hello World' in C++?",
-    options: ["print('Hello World');", "cout << 'Hello World';", "Console.WriteLine('Hello World');", "System.out.println('Hello World');"],
-    correct: 1
-  }
-];
-
 // ==============================================================================
 // 2. UI COMPONENTS
 // ==============================================================================
@@ -67,7 +41,7 @@ const MOCK_QUIZ_QUESTIONS = [
 const Button = ({ children, variant = 'primary', className = '', icon: Icon, loading = false, ...props }: any) => {
   const baseStyle = "inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed";
   
-  const variants = {
+  const variants: Record<string, string> = {
     primary: "bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow active:scale-95 border border-transparent",
     secondary: "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm active:scale-95",
     ghost: "bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900",
@@ -104,6 +78,7 @@ const LecturesView = ({ subjectName }: { subjectName: string }) => {
   const [sortBy, setSortBy] = useState('name');
   const [lectures, setLectures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLecture, setSelectedLecture] = useState<any>(null);
 
   // Load PDFs from Supabase Storage
   useEffect(() => {
@@ -148,6 +123,16 @@ const LecturesView = ({ subjectName }: { subjectName: string }) => {
           return 0;
       }
     });
+
+  // If a lecture is selected, show the full-screen PDF viewer
+  if (selectedLecture) {
+    return (
+      <PDFViewerPage 
+        lecture={selectedLecture}
+        onBack={() => setSelectedLecture(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -228,9 +213,14 @@ const LecturesView = ({ subjectName }: { subjectName: string }) => {
                 </h3>
                 
                 <div className="mt-auto grid grid-cols-2 gap-3">
-                  <a href={lecture.url} target="_blank" rel="noopener noreferrer" className="block">
-                    <Button variant="primary" className="w-full" icon={Eye}>View</Button>
-                  </a>
+                  <Button 
+                    variant="primary" 
+                    className="w-full" 
+                    icon={Eye}
+                    onClick={() => setSelectedLecture(lecture)}
+                  >
+                    View
+                  </Button>
                   <a href={lecture.url} download className="block">
                     <Button variant="secondary" className="w-full" icon={Download}>Save</Button>
                   </a>
@@ -257,11 +247,14 @@ const LecturesView = ({ subjectName }: { subjectName: string }) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                   <a href={lecture.url} target="_blank" rel="noopener noreferrer">
-                     <Button variant="primary" className="h-9 px-4 text-sm whitespace-nowrap shadow-none" icon={Eye}>
-                       View
-                     </Button>
-                   </a>
+                   <Button 
+                     variant="primary" 
+                     className="h-9 px-4 text-sm whitespace-nowrap shadow-none" 
+                     icon={Eye}
+                     onClick={() => setSelectedLecture(lecture)}
+                   >
+                     View
+                   </Button>
                    <a href={lecture.url} download className="hidden sm:block">
                      <Button variant="secondary" className="h-9 px-4 text-sm whitespace-nowrap shadow-none" icon={Download}>
                        Download
@@ -748,7 +741,7 @@ Return ONLY the JSON, nothing else.`;
                 ].map(type => (
                   <div 
                     key={type.id}
-                    onClick={() => toggleType(type.id)}
+                    onClick={() => toggleType(type.id as 'mcq' | 'trueFalse' | 'shortAnswer')}
                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                       config.types[type.id as keyof typeof config.types]
                         ? 'border-blue-500 bg-blue-50/50' 
@@ -1092,23 +1085,16 @@ export function SubjectDetailsPage({ onNavigate, subjectName = "Programming Fund
               return (
                 <button
                   key={tab.id}
-                  onClick={() => !tab.disabled && setActiveTab(tab.id)}
-                  disabled={tab.disabled}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`
                     group flex items-center gap-2 pb-4 border-b-2 transition-all duration-200 font-medium text-sm
                     ${isActive 
                       ? 'border-blue-600 text-blue-600' 
                       : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'}
-                    ${tab.disabled ? 'opacity-50 cursor-not-allowed hover:text-slate-500 hover:border-transparent' : ''}
                   `}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
                   {tab.label}
-                  {tab.disabled && (
-                    <span className="ml-1 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full border border-slate-200">
-                      Soon
-                    </span>
-                  )}
                 </button>
               );
             })}
