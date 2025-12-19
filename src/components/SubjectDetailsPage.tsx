@@ -355,6 +355,9 @@ Return ONLY the JSON array, nothing else. Example format:
 
       // Call AI API
       const response = await sendMessageToAI(prompt, []);
+      
+      // Log the raw response for debugging
+      console.log('Raw AI Response:', response);
 
       // Try to parse the JSON response
       let quizData;
@@ -362,12 +365,22 @@ Return ONLY the JSON array, nothing else. Example format:
         // Extract JSON from response (in case AI adds extra text)
         const jsonMatch = response.match(/\[\s*{[\s\S]*}\s*\]/);
         if (jsonMatch) {
+          console.log('Extracted JSON:', jsonMatch[0]);
           quizData = JSON.parse(jsonMatch[0]);
         } else {
+          console.log('Attempting direct parse...');
           quizData = JSON.parse(response);
         }
+        
+        // Validate the quiz data structure
+        if (!Array.isArray(quizData) || quizData.length === 0) {
+          throw new Error('Quiz data is not a valid array');
+        }
+        
+        console.log('Parsed quiz data:', quizData);
       } catch (parseError) {
         console.error('Failed to parse quiz JSON:', parseError);
+        console.error('Response was:', response);
         throw new Error('AI generated invalid quiz format. Please try again.');
       }
 
